@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 export default function HackathonPage() {
   const [posts, setPosts] = useState([]);
@@ -15,6 +16,8 @@ export default function HackathonPage() {
     maxTeamSize: "",
     contactInfo: "",
   });
+
+  const { user } = useAuth();
 
   const fetchPosts = async () => {
     try {
@@ -45,8 +48,15 @@ export default function HackathonPage() {
 
     try {
       await api.post("/hackathon", {
-        ...form,
-        maxTeamSize: form.maxTeamSize ? Number(form.maxTeamSize) : undefined,
+        hackathonName: form.hackathonName,
+        title: form.title,
+        description: form.description,
+        techStack: form.techStack, // backend will split into array
+        skillsNeeded: form.skillsNeeded,
+        maxMembers: form.maxTeamSize
+          ? Number(form.maxTeamSize)
+          : undefined,
+        contactInfo: form.contactInfo,
       });
 
       setForm({
@@ -64,6 +74,19 @@ export default function HackathonPage() {
     } catch (err) {
       console.error(err);
       setError(err?.response?.data?.message || "Failed to create post");
+    }
+  };
+
+  const handleCloseTeam = async (id) => {
+    try {
+      await api.patch(`/hackathon/post/${id}/close`);
+      fetchPosts();
+    } catch (err) {
+      console.error(err);
+      alert(
+        err?.response?.data?.message ||
+          `Failed to close team (status ${err?.response?.status || "?"})`
+      );
     }
   };
 
@@ -236,63 +259,98 @@ export default function HackathonPage() {
       )}
 
       <div>
-        {posts.map((p) => (
-          <div key={p._id} className="listing-card">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "0.35rem",
-              }}
-            >
-              <div>
-                {p.hackathonName && (
-                  <div className="badge" style={{ marginBottom: "0.2rem" }}>
-                    {p.hackathonName}
-                  </div>
-                )}
-                <div style={{ fontWeight: 600 }}>{p.title}</div>
-              </div>
-              {p.maxTeamSize && (
-                <span className="muted">
-                  Max team size: {p.maxTeamSize}
-                </span>
-              )}
-            </div>
+        {posts.map((p) => {
+          const isClosed = p.isClosed;
+          const isOwner = p.createdBy?._id === user?.id;
 
-            <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
-              {p.description}
-            </div>
-
-            {p.techStack && (
-              <div className="muted" style={{ marginBottom: "0.25rem" }}>
-                Tech: {p.techStack}
-              </div>
-            )}
-
-            {p.skillsNeeded && (
-              <div className="muted" style={{ marginBottom: "0.25rem" }}>
-                Looking for: {p.skillsNeeded}
-              </div>
-            )}
-
-            <div className="muted">
-              Posted by: {p.createdBy?.name} ({p.createdBy?.enrollment})
-            </div>
-
-            {p.contactInfo && (
+          return (
+            <div key={p._id} className="listing-card">
               <div
                 style={{
-                  marginTop: "0.25rem",
-                  fontSize: "0.8rem",
-                  color: "#e5e7eb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "0.35rem",
+                  alignItems: "center",
+                  gap: "0.5rem",
                 }}
               >
-                Contact: {p.contactInfo}
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      marginBottom: "0.2rem",
+                    }}
+                  >
+                    {p.hackathonName && (
+                      <div className="badge">{p.hackathonName}</div>
+                    )}
+                    {isClosed && (
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: "#dc2626",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Closed
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 600 }}>{p.title}</div>
+                </div>
+                {p.maxMembers && (
+                  <span className="muted">
+                    Max team size: {p.maxMembers}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+
+              <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
+                {p.description}
+              </div>
+
+              {p.techStack && p.techStack.length > 0 && (
+                <div className="muted" style={{ marginBottom: "0.25rem" }}>
+                  Tech: {p.techStack.join(", ")}
+                </div>
+              )}
+
+              {p.skillsNeeded && (
+                <div className="muted" style={{ marginBottom: "0.25rem" }}>
+                  Looking for: {p.skillsNeeded}
+                </div>
+              )}
+
+              <div className="muted">
+                Posted by: {p.createdBy?.name} ({p.createdBy?.enrollment})
+              </div>
+
+              {p.contactInfo && (
+                <div
+                  style={{
+                    marginTop: "0.25rem",
+                    fontSize: "0.8rem",
+                    color: "#e5e7eb",
+                  }}
+                >
+                  Contact: {p.contactInfo}
+                </div>
+              )}
+
+              {isOwner && !isClosed && (
+                <button
+                  onClick={() => handleCloseTeam(p._id)}
+                  className="btn-primary"
+                  style={{ marginTop: "0.5rem", background: "#dc2626" }}
+                >
+                  Close team
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

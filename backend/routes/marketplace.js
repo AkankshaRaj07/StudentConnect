@@ -27,6 +27,7 @@ router.post('/', authMiddleware, async (req, res) => {
       images: images || [],
       location,
       seller: req.user.id, // from authMiddleware
+      // status will default to "available" from schema
     });
 
     return res.status(201).json(item);
@@ -38,7 +39,8 @@ router.post('/', authMiddleware, async (req, res) => {
 
 /**
  * GET /marketplace
- * Public - get all items (optional: only unsold)
+ * Public - get all items
+ * optional query: ?onlyAvailable=true  -> filter status=available
  */
 router.get('/', async (req, res) => {
   try {
@@ -46,7 +48,7 @@ router.get('/', async (req, res) => {
 
     const filter = {};
     if (onlyAvailable === 'true') {
-      filter.isSold = false;
+      filter.status = 'available';
     }
 
     const items = await MarketplaceItem.find(filter)
@@ -111,7 +113,16 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Not allowed to edit this item' });
     }
 
-    const { title, description, price, category, condition, images, location, isSold } = req.body;
+    const {
+      title,
+      description,
+      price,
+      category,
+      condition,
+      images,
+      location,
+      status, // 🔥 NEW instead of isSold
+    } = req.body;
 
     if (title !== undefined) item.title = title;
     if (description !== undefined) item.description = description;
@@ -120,12 +131,38 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (condition !== undefined) item.condition = condition;
     if (images !== undefined) item.images = images;
     if (location !== undefined) item.location = location;
-    if (isSold !== undefined) item.isSold = isSold;
+    if (status !== undefined) item.status = status; // "available" | "sold"
 
     const updated = await item.save();
     return res.json(updated);
   } catch (err) {
     console.error('Update marketplace item error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /marketplace/:id/mark-sold
+ * Mark item as sold (only owner)
+ */
+router.patch('/:id/mark-sold', authMiddleware, async (req, res) => {
+  try {
+    const item = await MarketplaceItem.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    if (item.seller.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not allowed' });
+    }
+
+    item.status = 'sold';
+    await item.save();
+
+    const populated = await item.populate('seller', 'name enrollment');
+    return res.json({ message: 'Item marked as sold', item: populated });
+  } catch (err) {
+    console.error('Mark sold marketplace item error', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });
@@ -155,4 +192,4 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;  

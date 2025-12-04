@@ -1,4 +1,3 @@
-// backend/models/hackathonPost.js
 const mongoose = require('mongoose');
 
 const ApplicantSchema = new mongoose.Schema(
@@ -27,6 +26,12 @@ const ApplicantSchema = new mongoose.Schema(
 
 const HackathonPostSchema = new mongoose.Schema(
   {
+    // Optional: name of the hackathon (SIH, etc.)
+    hackathonName: {
+      type: String,
+      trim: true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -43,8 +48,15 @@ const HackathonPostSchema = new mongoose.Schema(
       default: [],
     },
 
+    // for your UI: plain text "Frontend, backend..."
+    skillsNeeded: {
+      type: String,
+      trim: true,
+    },
+
+    // For more structured roles (optional)
     requiredRoles: {
-      type: [String], // e.g. ["Frontend", "Backend", "ML", "Designer"]
+      type: [String],
       default: [],
     },
 
@@ -53,6 +65,12 @@ const HackathonPostSchema = new mongoose.Schema(
       type: Number,
       default: 4,
       min: 1,
+    },
+
+    // contact info for the team owner
+    contactInfo: {
+      type: String,
+      trim: true,
     },
 
     // creator / team leader

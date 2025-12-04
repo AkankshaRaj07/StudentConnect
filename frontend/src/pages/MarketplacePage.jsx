@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 export default function MarketplacePage() {
   const [items, setItems] = useState([]);
@@ -13,6 +14,7 @@ export default function MarketplacePage() {
     location: "",
   });
   const [error, setError] = useState("");
+  const { user } = useAuth(); // 👈 current logged-in user
 
   const fetchItems = async () => {
     try {
@@ -61,6 +63,23 @@ export default function MarketplacePage() {
     }
   };
 
+  const handleMarkSold = async (id) => {
+    try {
+      await api.patch(`/marketplace/${id}/mark-sold`);
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to mark as sold");
+    }
+  };
+
+  // Sort so available items come before sold ones
+  const sortedItems = [...items].sort((a, b) => {
+    const aSold = a.status === "sold";
+    const bSold = b.status === "sold";
+    return Number(aSold) - Number(bSold);
+  });
+
   return (
     <div className="page-shell">
       {/* Header + button */}
@@ -77,7 +96,8 @@ export default function MarketplacePage() {
         <div>
           <h2 style={{ marginBottom: "0.3rem" }}>Marketplace</h2>
           <p style={{ color: "#9ca3af", fontSize: "0.9rem", margin: 0 }}>
-            Buy &amp; sell books, electronics and hostel essentials within campus.
+            Buy &amp; sell books, electronics and hostel essentials within
+            campus.
           </p>
         </div>
 
@@ -222,54 +242,84 @@ export default function MarketplacePage() {
 
       {/* Listings (always visible) */}
       <h3 style={{ marginBottom: "0.75rem" }}>All Listings</h3>
-      {items.length === 0 && (
+      {sortedItems.length === 0 && (
         <p style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
           No items yet. Be the first to list something!
         </p>
       )}
 
       <div>
-        {items.map((item) => (
-          <div key={item._id} className="listing-card">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.35rem",
-              }}
-            >
-              <strong>{item.title}</strong>
-              <span>₹{item.price}</span>
-            </div>
+        {sortedItems.map((item) => {
+          const isSold = item.status === "sold";
+          const isOwner = item.seller?._id === user?.id;
 
-            <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
-              {item.description}
-            </div>
+          return (
+            <div key={item._id} className="listing-card">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "0.35rem",
+                  gap: "0.5rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <strong>{item.title}</strong>
+                  {isSold && (
+                    <span
+                      className="badge"
+                      style={{ backgroundColor: "#dc2626", textTransform: "uppercase" }}
+                    >
+                      Sold
+                    </span>
+                  )}
+                </div>
+                <span>₹{item.price}</span>
+              </div>
 
-            <div style={{ marginBottom: "0.35rem", fontSize: "0.85rem" }}>
-              <span className="badge">{item.category}</span>{" "}
-              <span className="badge" style={{ marginLeft: "0.4rem" }}>
-                {item.condition}
-              </span>{" "}
-              {item.location && (
-                <span
+              <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
+                {item.description}
+              </div>
+
+              <div style={{ marginBottom: "0.35rem", fontSize: "0.85rem" }}>
+                <span className="badge">{item.category}</span>{" "}
+                <span className="badge" style={{ marginLeft: "0.4rem" }}>
+                  {item.condition}
+                </span>{" "}
+                {item.location && (
+                  <span
+                    style={{
+                      marginLeft: "0.4rem",
+                      fontSize: "0.8rem",
+                      color: "#9ca3af",
+                    }}
+                  >
+                    {item.location}
+                  </span>
+                )}
+              </div>
+
+              <div className="muted">
+                Seller: {item.seller?.name} ({item.seller?.enrollment})
+              </div>
+
+              {/* Mark as sold button only for owner & only if available */}
+              {isOwner && !isSold && (
+                <button
+                  onClick={() => handleMarkSold(item._id)}
+                  className="btn-primary"
                   style={{
-                    marginLeft: "0.4rem",
-                    fontSize: "0.8rem",
-                    color: "#9ca3af",
+                    marginTop: "0.5rem",
+                    background: "#dc2626",
                   }}
                 >
-                  {item.location}
-                </span>
+                  Mark as Sold
+                </button>
               )}
             </div>
-
-            <div className="muted">
-              Seller: {item.seller?.name} ({item.seller?.enrollment})
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

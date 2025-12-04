@@ -7,20 +7,19 @@ const router = express.Router();
 
 /**
  * POST /lostfound
- * Create a lost or found item (protected)
- * body: { title, description, type, category, location, date, contactInfo, images }
+ * Create a lost/found post (protected)
+ * body: { title, description, type, category, location, date, contactInfo }
  */
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const {
       title,
       description,
-      type,         // "lost" or "found"
+      type,         // "lost" | "found"
       category,
       location,
       date,
       contactInfo,
-      images,
     } = req.body;
 
     if (!title || !type) {
@@ -35,8 +34,7 @@ router.post('/', authMiddleware, async (req, res) => {
       location,
       date,
       contactInfo,
-      images: images || [],
-      postedBy: req.user.id,
+      reportedBy: req.user.id,
     });
 
     return res.status(201).json(item);
@@ -49,24 +47,22 @@ router.post('/', authMiddleware, async (req, res) => {
 /**
  * GET /lostfound
  * Public - list items
- * Optional query params:
- *   type=lost|found
- *   onlyActive=true  (filters out resolved items)
+ * query: type=lost|found (optional), onlyOpen=true (optional)
  */
 router.get('/', async (req, res) => {
   try {
-    const { type, onlyActive } = req.query;
+    const { type, onlyOpen } = req.query;
 
     const filter = {};
     if (type === 'lost' || type === 'found') {
       filter.type = type;
     }
-    if (onlyActive === 'true') {
+    if (onlyOpen === 'true') {
       filter.isResolved = false;
     }
 
     const items = await LostFoundItem.find(filter)
-      .populate('postedBy', 'name enrollment')
+      .populate('reportedBy', 'name enrollment')
       .sort({ createdAt: -1 });
 
     return res.json(items);
@@ -77,27 +73,13 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /lostfound/my
- * Items posted by logged-in user
+ * GET /lostfound/:id
+ * Public - single item
  */
-router.get('/my', authMiddleware, async (req, res) => {
-  try {
-    const items = await LostFoundItem.find({ postedBy: req.user.id }).sort({ createdAt: -1 });
-    return res.json(items);
-  } catch (err) {
-    console.error('List my lost/found items error', err);
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-/**
- * GET /lostfound/item/:id
- * Get single lost/found item
- */
-router.get('/item/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const item = await LostFoundItem.findById(req.params.id)
-      .populate('postedBy', 'name enrollment');
+      .populate('reportedBy', 'name enrollment');
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
@@ -111,74 +93,46 @@ router.get('/item/:id', async (req, res) => {
 });
 
 /**
- * PUT /lostfound/item/:id
- * Update item (only owner)
+ * PATCH /lostfound/:id/resolve
+ * Mark item as resolved (only owner)
  */
-router.put('/item/:id', authMiddleware, async (req, res) => {
+router.patch('/:id/resolve', authMiddleware, async (req, res) => {
   try {
     const item = await LostFoundItem.findById(req.params.id);
-
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    if (item.postedBy.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not allowed to edit this item' });
+    if (item.reportedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not allowed' });
     }
 
-    const {
-      title,
-      description,
-      type,
-      category,
-      location,
-      date,
-      contactInfo,
-      images,
-      isResolved,
-    } = req.body;
-
-    if (title !== undefined) item.title = title;
-    if (description !== undefined) item.description = description;
-    if (type !== undefined) item.type = type;
-    if (category !== undefined) item.category = category;
-    if (location !== undefined) item.location = location;
-    if (date !== undefined) item.date = date;
-    if (contactInfo !== undefined) item.contactInfo = contactInfo;
-    if (images !== undefined) item.images = images;
-
-    // If you mark as resolved, set resolvedAt
-    if (isResolved !== undefined) {
-      item.isResolved = isResolved;
-      if (isResolved && !item.resolvedAt) {
-        item.resolvedAt = new Date();
-      }
-      if (!isResolved) {
-        item.resolvedAt = null;
-      }
+    if (!item.isResolved) {
+      item.isResolved = true;
+      item.resolvedAt = new Date();
+      await item.save();
     }
 
-    const updated = await item.save();
-    return res.json(updated);
+    const populated = await item.populate('reportedBy', 'name enrollment');
+    return res.json({ message: 'Marked as resolved', item: populated });
   } catch (err) {
-    console.error('Update lost/found item error', err);
+    console.error('Resolve lost/found item error', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });
 
 /**
- * DELETE /lostfound/item/:id
+ * DELETE /lostfound/:id
  * Delete item (only owner)
  */
-router.delete('/item/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const item = await LostFoundItem.findById(req.params.id);
-
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    if (item.postedBy.toString() !== req.user.id) {
+    if (item.reportedBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not allowed to delete this item' });
     }
 

@@ -1,4 +1,3 @@
-// backend/routes/hackathon.js
 const express = require('express');
 const HackathonPost = require('../models/hackathonPost');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -8,22 +7,52 @@ const router = express.Router();
 /**
  * POST /hackathon
  * Create a new hackathon team post (protected)
- * body: { title, description, techStack, requiredRoles, maxMembers }
+ * body: { hackathonName, title, description, techStack, skillsNeeded, maxMembers, contactInfo }
  */
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { title, description, techStack, requiredRoles, maxMembers } = req.body;
+    const {
+      hackathonName,
+      title,
+      description,
+      techStack,
+      skillsNeeded,
+      maxMembers,
+      contactInfo,
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: 'title is required' });
     }
 
+    // frontend sends techStack as comma-separated string → convert to array
+    let techArray = [];
+    if (Array.isArray(techStack)) {
+      techArray = techStack;
+    } else if (typeof techStack === 'string') {
+      techArray = techStack
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+
+    const rolesArray =
+      typeof skillsNeeded === 'string'
+        ? skillsNeeded
+            .split(',')
+            .map((r) => r.trim())
+            .filter(Boolean)
+        : [];
+
     const post = await HackathonPost.create({
+      hackathonName,
       title,
       description,
-      techStack: techStack || [],
-      requiredRoles: requiredRoles || [],
+      techStack: techArray,
+      skillsNeeded,
+      requiredRoles: rolesArray,
       maxMembers: maxMembers || 4,
+      contactInfo,
       createdBy: req.user.id,
     });
 
@@ -115,19 +144,73 @@ router.put('/post/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Not allowed to edit this post' });
     }
 
-    const { title, description, techStack, requiredRoles, maxMembers, isClosed } = req.body;
+    const {
+      hackathonName,
+      title,
+      description,
+      techStack,
+      skillsNeeded,
+      maxMembers,
+      contactInfo,
+      isClosed,
+    } = req.body;
 
+    if (hackathonName !== undefined) post.hackathonName = hackathonName;
     if (title !== undefined) post.title = title;
     if (description !== undefined) post.description = description;
-    if (techStack !== undefined) post.techStack = techStack;
-    if (requiredRoles !== undefined) post.requiredRoles = requiredRoles;
+    if (techStack !== undefined) {
+      if (Array.isArray(techStack)) {
+        post.techStack = techStack;
+      } else if (typeof techStack === 'string') {
+        post.techStack = techStack
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
+    }
+    if (skillsNeeded !== undefined) {
+      post.skillsNeeded = skillsNeeded;
+      post.requiredRoles =
+        typeof skillsNeeded === 'string'
+          ? skillsNeeded
+              .split(',')
+              .map((r) => r.trim())
+              .filter(Boolean)
+          : [];
+    }
     if (maxMembers !== undefined) post.maxMembers = maxMembers;
+    if (contactInfo !== undefined) post.contactInfo = contactInfo;
     if (isClosed !== undefined) post.isClosed = isClosed;
 
     const updated = await post.save();
     return res.json(updated);
   } catch (err) {
     console.error('Update hackathon post error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /hackathon/post/:id/close
+ * Close the team (only owner)
+ */
+router.patch('/post/:id/close', authMiddleware, async (req, res) => {
+  try {
+    const post = await HackathonPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    if (post.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only owner can close this post' });
+    }
+
+    if (!post.isClosed) {
+      post.isClosed = true;
+      await post.save();
+    }
+
+    return res.json({ message: 'Team closed', post });
+  } catch (err) {
+    console.error('Close hackathon post error', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });
@@ -201,37 +284,43 @@ router.post('/post/:id/apply', authMiddleware, async (req, res) => {
  * Team owner accepts / rejects an applicant
  * body: { status: "accepted" | "rejected" }
  */
-router.post('/post/:id/applicants/:userId/status', authMiddleware, async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!['accepted', 'rejected'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+router.post(
+  '/post/:id/applicants/:userId/status',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['accepted', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      const post = await HackathonPost.findById(req.params.id);
+
+      if (!post) return res.status(404).json({ message: 'Post not found' });
+
+      if (post.createdBy.toString() !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: 'Only owner can manage applicants' });
+      }
+
+      const applicant = (post.applicants || []).find(
+        (a) => a.user.toString() === req.params.userId
+      );
+
+      if (!applicant) {
+        return res.status(404).json({ message: 'Applicant not found' });
+      }
+
+      applicant.status = status;
+
+      await post.save();
+      return res.json({ message: `Applicant ${status}` });
+    } catch (err) {
+      console.error('Update applicant status error', err);
+      return res.status(500).json({ message: 'Server error' });
     }
-
-    const post = await HackathonPost.findById(req.params.id);
-
-    if (!post) return res.status(404).json({ message: 'Post not found' });
-
-    if (post.createdBy.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Only owner can manage applicants' });
-    }
-
-    const applicant = (post.applicants || []).find(
-      (a) => a.user.toString() === req.params.userId
-    );
-
-    if (!applicant) {
-      return res.status(404).json({ message: 'Applicant not found' });
-    }
-
-    applicant.status = status;
-
-    await post.save();
-    return res.json({ message: `Applicant ${status}` });
-  } catch (err) {
-    console.error('Update applicant status error', err);
-    return res.status(500).json({ message: 'Server error' });
   }
-});
+);
 
 module.exports = router;

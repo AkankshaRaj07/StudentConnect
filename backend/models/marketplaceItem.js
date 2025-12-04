@@ -32,31 +32,30 @@ const MarketplaceItemSchema = new mongoose.Schema(
       default: 'Used',
     },
 
-    // If later you want to store image URLs (Cloudinary, etc.)
     images: {
       type: [String],
       default: [],
     },
 
-    // Reference to the seller (User)
     seller: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
 
-    isSold: {
-      type: Boolean,
-      default: false,
+    // 🔥 replaced `isSold` with better scalable status
+    status: {
+      type: String,
+      enum: ['available', 'sold'],
+      default: 'available',
     },
 
-    // Optional: campus or location text
     location: {
       type: String,
       trim: true,
     },
   },
-  { timestamps: true } // adds createdAt, updatedAt
+  { timestamps: true }
 );
 
 module.exports = mongoose.model('MarketplaceItem', MarketplaceItemSchema);

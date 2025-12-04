@@ -1,4 +1,3 @@
-// backend/models/lostFoundItem.js
 const mongoose = require('mongoose');
 
 const LostFoundItemSchema = new mongoose.Schema(
@@ -21,11 +20,13 @@ const LostFoundItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    // backend/models/lostFoundItem.js
     category: {
       type: String,
-      enum: ['ID Card', 'Books', 'Electronics', 'Clothing', 'Accessories', 'Other'],
+      enum: ['ID Card', 'Book', 'Electronics', 'Keys', 'Wallet', 'Other'],
       default: 'Other',
     },
+
 
     // Where it was lost/found (e.g. "Library", "C Block, 2nd floor")
     location: {
@@ -50,8 +51,8 @@ const LostFoundItemSchema = new mongoose.Schema(
       default: [],
     },
 
-    // User who posted this
-    postedBy: {
+    // User who posted this  🔥 renamed to reportedBy
+    reportedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,

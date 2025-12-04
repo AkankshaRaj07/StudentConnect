@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 export default function LostFoundPage() {
   const [items, setItems] = useState([]);
@@ -16,6 +17,8 @@ export default function LostFoundPage() {
     date: "",
     contactInfo: "",
   });
+
+  const { user } = useAuth();
 
   const fetchItems = async () => {
     try {
@@ -54,7 +57,6 @@ export default function LostFoundPage() {
         date: form.date ? new Date(form.date) : undefined,
       });
 
-      // reset form (keep type same as tab)
       setForm({
         title: "",
         description: "",
@@ -65,7 +67,7 @@ export default function LostFoundPage() {
         contactInfo: "",
       });
 
-      setShowForm(false); // hide form after submit
+      setShowForm(false);
       fetchItems();
     } catch (err) {
       console.error(err);
@@ -73,12 +75,29 @@ export default function LostFoundPage() {
     }
   };
 
+  const handleMarkResolved = async (id) => {
+    try {
+      await api.patch(`/lostfound/${id}/resolve`);
+      fetchItems();
+    } catch (err) {
+      console.error(err);
+      alert(
+        err?.response?.data?.message ||
+          `Failed to mark as resolved (status ${err?.response?.status || "?"})`
+      );
+    }
+  };
+
   const switchTab = (tab) => {
     setActiveTab(tab);
     setForm((prev) => ({ ...prev, type: tab }));
-    // optional: close form when switching tab
     setShowForm(false);
   };
+
+  // unresolved first, then resolved
+  const sortedItems = [...items].sort(
+    (a, b) => Number(a.isResolved) - Number(b.isResolved)
+  );
 
   return (
     <div className="page-shell">
@@ -150,7 +169,7 @@ export default function LostFoundPage() {
         </button>
       </div>
 
-      {/* Form card (only when showForm true) */}
+      {/* Form card */}
       {showForm && (
         <div className="card" style={{ marginBottom: "1.2rem" }}>
           <div
@@ -282,61 +301,88 @@ export default function LostFoundPage() {
         {activeTab === "lost" ? "Recently Lost" : "Recently Found"}
       </h3>
 
-      {items.length === 0 && (
+      {sortedItems.length === 0 && (
         <p style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
           No {activeTab} items yet.
         </p>
       )}
 
       <div>
-        {items.map((item) => (
-          <div key={item._id} className="listing-card">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "0.35rem",
-              }}
-            >
-              <strong>{item.title}</strong>
-              <span className="badge">{item.category}</span>
-            </div>
+        {sortedItems.map((item) => {
+          const isResolved = item.isResolved;
+          const isOwner = item.reportedBy?._id === user?.id;
 
-            <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
-              {item.description}
-            </div>
-
-            <div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-              {item.location && (
-                <span style={{ marginRight: "0.5rem" }}>
-                  📍 {item.location}
-                </span>
-              )}
-              {item.date && (
-                <span className="muted">
-                  {new Date(item.date).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-
-            <div className="muted">
-              Reported by: {item.reportedBy?.name} (
-              {item.reportedBy?.enrollment})
-            </div>
-
-            {item.contactInfo && (
+          return (
+            <div key={item._id} className="listing-card">
               <div
                 style={{
-                  marginTop: "0.25rem",
-                  fontSize: "0.8rem",
-                  color: "#e5e7eb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "0.35rem",
+                  gap: "0.5rem",
                 }}
               >
-                Contact: {item.contactInfo}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <strong>{item.title}</strong>
+                  {isResolved && (
+                    <span
+                      className="badge"
+                      style={{ backgroundColor: "#16a34a", textTransform: "uppercase" }}
+                    >
+                      Resolved
+                    </span>
+                  )}
+                </div>
+                <span className="badge">{item.category}</span>
               </div>
-            )}
-          </div>
-        ))}
+
+              <div style={{ marginBottom: "0.35rem", fontSize: "0.9rem" }}>
+                {item.description}
+              </div>
+
+              <div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+                {item.location && (
+                  <span style={{ marginRight: "0.5rem" }}>📍 {item.location}</span>
+                )}
+                {item.date && (
+                  <span className="muted">
+                    {new Date(item.date).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              <div className="muted">
+                Reported by: {item.reportedBy?.name} ({item.reportedBy?.enrollment})
+              </div>
+
+              {item.contactInfo && (
+                <div
+                  style={{
+                    marginTop: "0.25rem",
+                    fontSize: "0.8rem",
+                    color: "#e5e7eb",
+                  }}
+                >
+                  Contact: {item.contactInfo}
+                </div>
+              )}
+
+              {isOwner && !isResolved && (
+                <button
+                  onClick={() => handleMarkResolved(item._id)}
+                  className="btn-primary"
+                  style={{
+                    marginTop: "0.5rem",
+                    background: "#16a34a",
+                  }}
+                >
+                  Mark as returned
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
