@@ -50,28 +50,36 @@ The platform emphasizes **security, usability, and real-world practicality**, ma
 
 ## 📸 Screenshots
 
-### 🏠 Marketplace
+### 🔐 Sign In
+![Sign In](./assets/AuthenticationSignin.png)
+
+### 🔑 Log In
+![Log In](./assets/LogIn.png)
+
+---
+
+### 🛒 Marketplace
 ![Marketplace](./assets/MarketPlace.png)
 
-### 🔍 Lost & Found Dashboard
+### ➕ Add Listing
+![Add Listing](./assets/AddListing.png)
+
+---
+
+### 🔍 Lost & Found
 ![Lost and Found](./assets/LostAndFound.png)
 
 ### ➕ Add Lost/Found Item
 ![Add L&F](./assets/AddL&F.png)
 
-### 📦 Add Marketplace Listing
-![Add Listing](./assets/AddListing.png)
+---
 
 ### 🤝 Team Finder
 ![Team Finder](./assets/TeamFinder.png)
 
-### ➕ Add Team Requirement
+### ➕ Add Requirement
 ![Add Requirement](./assets/AddRequirement.png)
 
-### 🔐 Authentication (Sign In)
-![Authentication](./assets/AuthenticationSignin.png)
-
----
 
 ## ⚙️ Installation & Setup
 
