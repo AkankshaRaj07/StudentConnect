@@ -12,14 +12,32 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// 👇 Allow frontend (React Vite) to call backend
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit = require('express-rate-limit');
+
+// Security Middlewares
+app.use(helmet());
+// app.use(mongoSanitize());
+
+// 👇 Allow frontend (React Vite) to call backend dynamically
+const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:5173';
 app.use(
   cors({
-    origin: 'http://localhost:5173',               // frontend URL
-    methods: 'GET,POST,PUT,DELETE,OPTIONS',
+    origin: allowedOrigin,               // frontend URL from env or fallback
+    methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization'
   })
 );
+
+// Basic Rate limiter: max 100 requests per 15 minutes per IP
+const windowMs = 15 * 60 * 1000;
+const limiter = rateLimit({
+  windowMs: windowMs,
+  max: 100, 
+  message: { message: "Too many requests from this IP, please try again after 15 minutes" },
+});
+app.use(limiter);
 
 // Connect to MongoDB
 connectDB();

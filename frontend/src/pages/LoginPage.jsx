@@ -50,6 +50,9 @@ export default function LoginPage() {
               onChange={(e) => setEnrollmentNo(e.target.value)}
               placeholder="0157CS25XXXX"
               style={styles.input}
+              pattern="^[0-9]{4}[A-Za-z]{2}[0-9]{2}[0-9]{4}$"
+              title="Enter a valid 12-character enrollment number (e.g. 0157CS25XXXX)"
+              required
             />
           </div>
 
@@ -60,6 +63,8 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={styles.input}
+              minLength={6}
+              required
             />
           </div>
 

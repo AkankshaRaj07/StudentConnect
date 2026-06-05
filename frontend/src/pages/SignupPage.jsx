@@ -24,8 +24,18 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     if (password !== confirm) {
       setError("Passwords do not match");
+      return;
+    }
+
+    if (!/^[0-9]{4}[A-Za-z]{2}[0-9]{2}[0-9]{4}$/.test(enrollmentNo.trim().toUpperCase())) {
+      setError("Invalid enrollment number format");
       return;
     }
 
@@ -63,6 +73,7 @@ export default function SignupPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={styles.input}
+              required
             />
           </div>
 
@@ -74,6 +85,9 @@ export default function SignupPage() {
               onChange={(e) => setEnrollmentNo(e.target.value)}
               placeholder="0157CS25XXXX"
               style={styles.input}
+              pattern="^[0-9]{4}[A-Za-z]{2}[0-9]{2}[0-9]{4}$"
+              title="Enter a valid 12-character enrollment number (e.g. 0157CS25XXXX)"
+              required
             />
           </div>
 
@@ -95,6 +109,8 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
+                minLength={6}
+                required
               />
             </div>
             <div style={{ ...styles.inputGroup, marginLeft: "0.5rem" }}>
@@ -104,6 +120,8 @@ export default function SignupPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 style={styles.input}
+                minLength={6}
+                required
               />
             </div>
           </div>

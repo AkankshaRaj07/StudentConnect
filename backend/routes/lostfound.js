@@ -144,4 +144,45 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * PUT /lostfound/:id
+ * Edit item (only owner)
+ */
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const item = await LostFoundItem.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    if (item.reportedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not allowed to edit this item' });
+    }
+
+    const {
+      title,
+      description,
+      type,
+      category,
+      location,
+      date,
+      contactInfo,
+    } = req.body;
+
+    if (title !== undefined) item.title = title;
+    if (description !== undefined) item.description = description;
+    if (type !== undefined) item.type = type;
+    if (category !== undefined) item.category = category;
+    if (location !== undefined) item.location = location;
+    if (date !== undefined) item.date = date;
+    if (contactInfo !== undefined) item.contactInfo = contactInfo;
+
+    const updated = await item.save();
+    return res.json(updated);
+  } catch (err) {
+    console.error('Update lost/found item error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
